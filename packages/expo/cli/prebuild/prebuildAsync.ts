@@ -1,112 +1,96 @@
 import { ExpoConfig } from '@expo/config';
 import { ModPlatform } from '@expo/config-plugins';
-import temporary from 'tempy';
 
 import * as Log from '../log';
-import { installCocoaPodsAsync } from '../utils/Podfile';
+import { installCocoaPodsAsync } from '../utils/cocoapods';
 import { maybeBailOnGitStatusAsync } from '../utils/git';
 import { installNodeDependenciesAsync, resolvePackageManager } from '../utils/nodeModules';
 import { logNewSection } from '../utils/ora';
 import { clearNativeFolder, promptToClearMalformedNativeProjectsAsync } from './clearNativeFolder';
-import configureProjectAsync from './configureProjectAsync';
+import { configureProjectAsync } from './configureProjectAsync';
 import { createNativeProjectsFromTemplateAsync } from './createNativeProjectsFromTemplateAsync';
 import { ensureConfigAsync } from './ensureConfigAsync';
-import { assertPlatforms, ensureValidPlatforms, platformsFromPlatform } from './platformOptions';
-import { resolveTemplateOption } from './resolveTemplate';
-
-export async function actionAsync(
-  projectRoot: string,
-  {
-    platform,
-    clean,
-    skipDependencyUpdate,
-    ...options
-  }: EjectAsyncOptions & {
-    npm?: boolean;
-    platform?: string;
-    clean?: boolean;
-    skipDependencyUpdate?: string;
-  }
-) {
-  if (options.npm) {
-    options.packageManager = 'npm';
-  }
-
-  const platforms = platformsFromPlatform(platform);
-
-  if (clean) {
-    if (await maybeBailOnGitStatusAsync()) return;
-    // Clear the native folders before syncing
-    await clearNativeFolder(projectRoot, platforms);
-  } else {
-    await promptToClearMalformedNativeProjectsAsync(projectRoot, platforms);
-  }
-
-  await _prebuildAsync(projectRoot, {
-    ...options,
-    skipDependencyUpdate: skipDependencyUpdate ? skipDependencyUpdate.split(',') : [],
-    platforms,
-  } as EjectAsyncOptions);
-}
-
-export type EjectAsyncOptions = {
-  verbose?: boolean;
-  force?: boolean;
-  template?: string;
-  install?: boolean;
-  packageManager?: 'npm' | 'yarn';
-  platforms: ModPlatform[];
-  skipDependencyUpdate?: string[];
-};
+import { assertPlatforms, ensureValidPlatforms } from './platformOptions';
+import { resolveTemplateOption } from './resolveOptions';
 
 export type PrebuildResults = {
+  /** Expo config. */
   exp: ExpoConfig;
+  /** Indicates if the process created new files. */
   hasNewProjectFiles: boolean;
+  /** The platforms that were prebuilt. */
   platforms: ModPlatform[];
+  /** Indicates if pod install was run. */
   podInstall: boolean;
+  /** Indicates if node modules were installed. */
   nodeInstall: boolean;
+  /** Indicates which package manager the project is using. */
   packageManager: string;
 };
 
 /**
  * Entry point into the prebuild process, delegates to other helpers to perform various steps.
  *
- * 1. Create native projects (ios, android)
- * 2. Install node modules
- * 3. Apply config to native projects
- * 4. Install CocoaPods
+ * 0. Attempt to clean the project folders.
+ * 1. Create native projects (ios, android).
+ * 2. Install node modules.
+ * 3. Apply config to native projects.
+ * 4. Install CocoaPods.
  */
-export async function _prebuildAsync(
+export async function prebuildAsync(
   projectRoot: string,
-  { platforms, ...options }: EjectAsyncOptions
+  options: {
+    /** Should install node modules and cocoapods. */
+    install: boolean;
+    /** List of platforms to prebuild. */
+    platforms: ModPlatform[];
+    /** Should delete the native folders before attempting to prebuild. */
+    clean?: boolean;
+    /** URL or file path to the prebuild template. */
+    template?: string;
+    /** Name of the node package manager to install with. */
+    packageManager?: 'npm' | 'yarn';
+    /** List of node modules to skip updating. */
+    skipDependencyUpdate?: string[];
+  }
 ): Promise<PrebuildResults> {
-  platforms = ensureValidPlatforms(platforms);
-  assertPlatforms(platforms);
+  if (options.clean) {
+    // Clean the project folders...
+    if (await maybeBailOnGitStatusAsync()) return;
+    // Clear the native folders before syncing
+    await clearNativeFolder(projectRoot, options.platforms);
+  } else {
+    // Check if the existing project folders are malformed.
+    await promptToClearMalformedNativeProjectsAsync(projectRoot, options.platforms);
+  }
 
-  const { exp, pkg } = await ensureConfigAsync({ projectRoot, platforms });
-  const tempDir = temporary.directory();
+  // Warn if the project is attempting to prebuild an unsupported platform (iOS on Windows).
+  options.platforms = ensureValidPlatforms(options.platforms);
+  // Assert if no platforms are left over after filtering.
+  assertPlatforms(options.platforms);
 
+  // Get the Expo config, create it if missing.
+  const { exp, pkg } = await ensureConfigAsync({ projectRoot, platforms: options.platforms });
+
+  // Create native projects from template.
   const { hasNewProjectFiles, needsPodInstall, hasNewDependencies } =
     await createNativeProjectsFromTemplateAsync({
       projectRoot,
       exp,
       pkg,
       template: options.template != null ? resolveTemplateOption(options.template) : undefined,
-      tempDir,
-      platforms,
+      platforms: options.platforms,
       skipDependencyUpdate: options.skipDependencyUpdate,
     });
 
   // Install node modules
-  const shouldInstall = options?.install !== false;
-
   const packageManager = resolvePackageManager({
-    install: shouldInstall,
-    npm: options?.packageManager === 'npm',
-    yarn: options?.packageManager === 'yarn',
+    install: options.install,
+    npm: options.packageManager === 'npm',
+    yarn: options.packageManager === 'yarn',
   });
 
-  if (shouldInstall) {
+  if (options.install) {
     await installNodeDependenciesAsync(projectRoot, packageManager, {
       // We delete the dependencies when new ones are added because native packages are more fragile.
       // npm doesn't work well so we always run the cleaning step when npm is used in favor of yarn.
@@ -119,7 +103,7 @@ export async function _prebuildAsync(
   try {
     await configureProjectAsync({
       projectRoot,
-      platforms,
+      platforms: options.platforms,
     });
     configSyncingStep.succeed('Config synced');
   } catch (error) {
@@ -130,7 +114,7 @@ export async function _prebuildAsync(
   // Install CocoaPods
   let podsInstalled: boolean = false;
   // err towards running pod install less because it's slow and users can easily run npx pod-install afterwards.
-  if (platforms.includes('ios') && shouldInstall && needsPodInstall) {
+  if (options.platforms.includes('ios') && options.install && needsPodInstall) {
     podsInstalled = await installCocoaPodsAsync(projectRoot);
   } else {
     Log.debug('Skipped pod install');
@@ -138,9 +122,9 @@ export async function _prebuildAsync(
 
   return {
     packageManager,
-    nodeInstall: options.install === false,
+    nodeInstall: options.install,
     podInstall: !podsInstalled,
-    platforms,
+    platforms: options.platforms,
     hasNewProjectFiles,
     exp,
   };

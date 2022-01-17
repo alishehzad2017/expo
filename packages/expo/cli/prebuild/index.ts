@@ -4,8 +4,8 @@ import chalk from 'chalk';
 import { Command } from '../../bin/cli';
 import * as Log from '../log';
 import { assertArgs, getProjectRoot } from '../utils/args';
-import { platformsFromPlatform } from './platformOptions';
-import { actionAsync } from './prebuildAsync';
+import { prebuildAsync } from './prebuildAsync';
+import { resolvePlatformOption, resolveSkipDependencyUpdate } from './resolveOptions';
 
 export const expoPrebuild: Command = (argv) => {
   const args = assertArgs(
@@ -52,14 +52,14 @@ export const expoPrebuild: Command = (argv) => {
     );
   }
 
-  return actionAsync(getProjectRoot(args), {
+  return prebuildAsync(getProjectRoot(args), {
     // Parsed options
     clean: args['--clean'],
-    npm: args['--npm'],
+    packageManager: args['--npm'] ? 'npm' : 'yarn',
     install: !args['--no-install'],
-    platforms: platformsFromPlatform(args['--platform']),
+    platforms: resolvePlatformOption(args['--platform']),
     // TODO: Parse
-    skipDependencyUpdate: args['--skip-dependency-update'],
+    skipDependencyUpdate: resolveSkipDependencyUpdate(args['--skip-dependency-update']),
     template: args['--template'],
   }).catch((err) => {
     Log.exit(err);

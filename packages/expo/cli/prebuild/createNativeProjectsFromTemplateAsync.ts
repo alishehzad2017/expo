@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
 import semver from 'semver';
+import temporary from 'tempy';
 
 import * as Log from '../log';
 import { directoryExistsAsync } from '../utils/dir';
@@ -12,7 +13,7 @@ import { AbortCommandError, SilentError } from '../utils/errors';
 import { mergeGitIgnorePaths } from '../utils/gitignore';
 import { downloadAndExtractNpmModuleAsync, getNpmUrlAsync } from '../utils/npm';
 import { logNewSection } from '../utils/ora';
-import { resolveTemplateArgAsync } from './resolveGithub';
+import { resolveTemplateArgAsync } from './resolveTemplate';
 import {
   DependenciesModificationResults,
   isPkgMainExpoAppEntry,
@@ -32,7 +33,7 @@ export async function createNativeProjectsFromTemplateAsync({
   exp,
   pkg,
   template,
-  tempDir,
+  tempDir = temporary.directory(),
   platforms,
   skipDependencyUpdate,
 }: {
@@ -40,7 +41,7 @@ export async function createNativeProjectsFromTemplateAsync({
   exp: ExpoConfig;
   pkg: PackageJSONConfig;
   template?: string;
-  tempDir: string;
+  tempDir?: string;
   platforms: ModPlatform[];
   skipDependencyUpdate?: string[];
 }): Promise<
@@ -78,7 +79,6 @@ export async function createNativeProjectsFromTemplateAsync({
 /**
  * Extract the template and copy the ios and android directories over to the project directory.
  *
- * @param force should create native projects even if they already exist.
  * @return `true` if any project files were created.
  */
 async function cloneNativeDirectoriesAsync({
