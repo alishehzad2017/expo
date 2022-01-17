@@ -13,7 +13,7 @@ export async function attemptModification(
     skipSDKVersionRequirement: true,
   });
   if (modification.type === 'success') {
-    Log.addNewLineIfNone();
+    Log.log();
   } else {
     warnAboutConfigAndThrow(modification.type, modification.message!, exactEdits);
   }
@@ -52,7 +52,7 @@ export async function attemptAddingPluginsAsync(
 }
 
 export function warnAboutConfigAndThrow(type: string, message: string, edits: Partial<ExpoConfig>) {
-  Log.addNewLineIfNone();
+  Log.log();
   if (type === 'warn') {
     // The project is using a dynamic config, give the user a helpful log and bail out.
     Log.log(chalk.yellow(message));
@@ -66,7 +66,7 @@ export function warnAboutConfigAndThrow(type: string, message: string, edits: Pa
 
 function notifyAboutManualConfigEdits(edits: Partial<ExpoConfig>) {
   Log.log(chalk.cyan(`Please add the following to your Expo config`));
-  Log.newLine();
+  Log.log();
   Log.log(JSON.stringify(edits, null, 2));
-  Log.newLine();
+  Log.log();
 }

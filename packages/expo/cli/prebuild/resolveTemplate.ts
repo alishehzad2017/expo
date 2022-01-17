@@ -1,21 +1,19 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { isURL } from 'xdl/build/UrlUtils';
+import assert from 'assert';
+import fs from 'fs';
+import path from 'path';
 
-import { CommandError } from '../utils/errors';
+import { isUrl } from '../utils/url';
 
 export function resolveTemplateOption(template: string) {
-  if (isURL(template, {})) {
+  if (isUrl(template)) {
     return template;
   }
   const templatePath = path.resolve(template);
-  if (!fs.existsSync(templatePath)) {
-    throw new CommandError('template file does not exist: ' + templatePath);
-  }
-  if (!fs.statSync(templatePath).isFile()) {
-    throw new CommandError(
-      'template must be a tar file created by running `npm pack` in a project: ' + templatePath
-    );
-  }
+  assert(fs.existsSync(templatePath), 'template file does not exist: ' + templatePath);
+  assert(
+    fs.statSync(templatePath).isFile(),
+    'template must be a tar file created by running `npm pack` in a project: ' + templatePath
+  );
+
   return templatePath;
 }

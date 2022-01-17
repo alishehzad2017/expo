@@ -1,21 +1,13 @@
 import chalk from 'chalk';
-import * as fs from 'fs-extra';
-import got from 'got';
+import fs from 'fs';
+import fetch from 'node-fetch';
 import { Ora } from 'ora';
 import path from 'path';
-import { Stream } from 'stream';
-import tar from 'tar';
-import { promisify } from 'util';
 
-import { CommandError, AbortCommandError } from '../utils/errors';
-import {
-  createEntryResolver,
-  createFileTransform,
-  extractTemplateAppFolderAsync,
-} from '../utils/extractTemplateAppAsync';
-
-// @ts-ignore
-const pipeline = promisify(Stream.pipeline);
+import * as Log from '../log';
+import { AbortCommandError, CommandError } from '../utils/errors';
+import { extractLocalNpmTarballAsync, extractNpmTarballFromUrlAsync } from '../utils/npm';
+import { isUrlOk } from '../utils/url';
 
 type RepoInfo = {
   username: string;
@@ -24,11 +16,6 @@ type RepoInfo = {
   filePath: string;
 };
 
-async function isUrlOk(url: string): Promise<boolean> {
-  const res = await got(url).catch((e) => e);
-  return res.statusCode === 200;
-}
-
 async function getRepoInfo(url: any, examplePath?: string): Promise<RepoInfo | undefined> {
   const [, username, name, t, _branch, ...file] = url.pathname.split('/');
   const filePath = examplePath ? examplePath.replace(/^\//, '') : file.join('/');
@@ -36,13 +23,11 @@ async function getRepoInfo(url: any, examplePath?: string): Promise<RepoInfo | u
   // Support repos whose entire purpose is to be an example, e.g.
   // https://github.com/:username/:my-cool-example-repo-name.
   if (t === undefined) {
-    const infoResponse = await got(`https://api.github.com/repos/${username}/${name}`).catch(
-      (e) => e
-    );
-    if (infoResponse.statusCode !== 200) {
+    const infoResponse = await fetch(`https://api.github.com/repos/${username}/${name}`);
+    if (infoResponse.status !== 200) {
       return;
     }
-    const info = JSON.parse(infoResponse.body);
+    const info = await infoResponse.json();
     return { username, name, branch: info['default_branch'], filePath };
   }
 
@@ -80,7 +65,7 @@ export async function resolveTemplateArgAsync(
     try {
       // @ts-ignore
       repoUrl = new URL(template);
-    } catch (error) {
+    } catch (error: any) {
       if (error.code !== 'ERR_INVALID_URL') {
         oraInstance.fail(error);
         throw error;
@@ -93,7 +78,8 @@ export async function resolveTemplateArgAsync(
         throw new CommandError(`template file does not exist: ${templatePath}`);
       }
 
-      return await extractTemplateAppFolderAsync(templatePath, tempDir, { name: appName });
+      await extractLocalNpmTarballAsync(templatePath, { cwd: tempDir, name: appName });
+      return tempDir;
     }
 
     if (repoUrl.origin !== 'https://github.com') {
@@ -144,16 +130,13 @@ function downloadAndExtractRepoAsync(
   const projectName = path.basename(root);
 
   const strip = filePath ? filePath.split('/').length + 1 : 1;
-  return pipeline(
-    got.stream(`https://codeload.github.com/${username}/${name}/tar.gz/${branch}`),
-    tar.extract(
-      {
-        cwd: root,
-        transform: createFileTransform({ name: projectName }),
-        onentry: createEntryResolver(projectName),
-        strip,
-      },
-      [`${name}-${branch}${filePath ? `/${filePath}` : ''}`]
-    )
-  );
+
+  const url = `https://codeload.github.com/${username}/${name}/tar.gz/${branch}`;
+  Log.debug('Downloading tarball from:', url);
+  return extractNpmTarballFromUrlAsync(url, {
+    cwd: root,
+    name: projectName,
+    strip,
+    fileList: [`${name}-${branch}${filePath ? `/${filePath}` : ''}`],
+  });
 }

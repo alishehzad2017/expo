@@ -1,18 +1,24 @@
-import { getConfig } from '@expo/config';
+import { ExpoConfig, getAccountUsername, getConfig } from '@expo/config';
 import chalk from 'chalk';
-import { UserManager } from 'xdl';
 
 import * as Log from '../log';
 import { CommandError } from './errors';
+import { learnMore } from './link';
 import { attemptModification } from './modifyConfigAsync';
 import prompt, { confirmAsync } from './prompts';
-import { learnMore } from './TerminalLink';
 import {
   getBundleIdWarningAsync,
   getPackageNameWarningAsync,
   validateBundleId,
   validatePackage,
 } from './validateApplicationId';
+
+function getUsernameAsync(exp: ExpoConfig) {
+  // TODO: Use XDL's UserManager
+  // import { UserManager } from 'xdl';
+
+  return getAccountUsername(exp);
+}
 
 const noBundleIdMessage = `Your project must have a \`bundleIdentifier\` set in the Expo config (app.json or app.config.js).\nSee https://expo.fyi/bundle-identifier`;
 const noPackageMessage = `Your project must have a \`package\` set in the Expo config (app.json or app.config.js).\nSee https://expo.fyi/android-package`;
@@ -36,20 +42,20 @@ export async function getOrPromptForBundleIdentifier(projectRoot: string): Promi
   if (exp.android?.package && validateBundleId(exp.android?.package)) {
     recommendedBundleId = exp.android?.package;
   } else {
-    const username = exp.owner ?? (await UserManager.getCurrentUsernameAsync());
+    const username = await getUsernameAsync(exp);
     const possibleId = `com.${username}.${exp.slug}`;
     if (username && validateBundleId(possibleId)) {
       recommendedBundleId = possibleId;
     }
   }
 
-  Log.addNewLineIfNone();
+  Log.log();
   Log.log(
     `${chalk.bold(`📝  iOS Bundle Identifier`)} ${chalk.dim(
       learnMore('https://expo.fyi/bundle-identifier')
     )}`
   );
-  Log.newLine();
+  Log.log();
   // Prompt the user for the bundle ID.
   // Even if the project is using a dynamic config we can still
   // prompt a better error message, recommend a default value, and help the user
@@ -71,16 +77,16 @@ export async function getOrPromptForBundleIdentifier(projectRoot: string): Promi
   // Warn the user if the bundle ID is already in use.
   const warning = await getBundleIdWarningAsync(bundleIdentifier);
   if (warning) {
-    Log.newLine();
-    Log.nestedWarn(warning);
-    Log.newLine();
+    Log.log();
+    Log.warn(warning);
+    Log.log();
     if (
       !(await confirmAsync({
         message: `Continue?`,
         initial: true,
       }))
     ) {
-      Log.newLine();
+      Log.log();
       return getOrPromptForBundleIdentifier(projectRoot);
     }
   }
@@ -116,7 +122,7 @@ export async function getOrPromptForPackage(projectRoot: string): Promise<string
   if (exp.ios?.bundleIdentifier && validatePackage(exp.ios.bundleIdentifier)) {
     recommendedPackage = exp.ios.bundleIdentifier;
   } else {
-    const username = exp.owner ?? (await UserManager.getCurrentUsernameAsync());
+    const username = await getUsernameAsync(exp);
     // It's common to use dashes in your node project name, strip them from the suggested package name.
     const possibleId = `com.${username}.${exp.slug}`.split('-').join('');
     if (username && validatePackage(possibleId)) {
@@ -124,13 +130,13 @@ export async function getOrPromptForPackage(projectRoot: string): Promise<string
     }
   }
 
-  Log.addNewLineIfNone();
+  Log.log();
   Log.log(
     `${chalk.bold(`📝  Android package`)} ${chalk.dim(
       learnMore('https://expo.fyi/android-package')
     )}`
   );
-  Log.newLine();
+  Log.log();
 
   // Prompt the user for the android package.
   // Even if the project is using a dynamic config we can still
@@ -152,16 +158,16 @@ export async function getOrPromptForPackage(projectRoot: string): Promise<string
   // Warn the user if the package name is already in use.
   const warning = await getPackageNameWarningAsync(packageName);
   if (warning) {
-    Log.newLine();
-    Log.nestedWarn(warning);
-    Log.newLine();
+    Log.log();
+    Log.warn(warning);
+    Log.log();
     if (
       !(await confirmAsync({
         message: `Continue?`,
         initial: true,
       }))
     ) {
-      Log.newLine();
+      Log.log();
       return getOrPromptForPackage(projectRoot);
     }
   }

@@ -1,12 +1,12 @@
 import { PackageJSONConfig } from '@expo/config';
 import chalk from 'chalk';
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 
 import * as Log from '../log';
 import { CommandError } from '../utils/errors';
+import { learnMore } from '../utils/link';
 import { logNewSection } from '../utils/ora';
-import { learnMore } from '../utils/TerminalLink';
 import { createFileHash } from './updatePackageJson';
 
 export function writeMetroConfig({
@@ -49,21 +49,21 @@ export function writeMetroConfig({
       throw new CommandError('Existing Metro config found; not overwriting.');
     }
 
-    fs.copySync(sourceConfigPath, targetConfigPath);
+    fs.copyFileSync(sourceConfigPath, targetConfigPath);
     updatingMetroConfigStep.succeed('Added Metro config');
   } catch (e) {
     updatingMetroConfigStep.stopAndPersist({
       symbol: '⚠️ ',
       text: chalk.yellow('Skipped Metro config updates:'),
     });
-    Log.nested(`\u203A ${e.message}`);
-    Log.nested(
+    Log.log(`\u203A ${e.message}`);
+    Log.log(
       `\u203A You will need to extend the default ${chalk.bold(
         '@expo/metro-config'
-      )} in your Metro config.\n  ${Log.chalk.dim(
+      )} in your Metro config.\n  ${chalk.dim(
         learnMore('https://docs.expo.dev/guides/customizing-metro')
       )}`
     );
-    Log.newLine();
+    Log.log();
   }
 }

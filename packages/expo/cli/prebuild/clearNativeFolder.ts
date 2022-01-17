@@ -4,20 +4,17 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 
 import * as Log from '../log';
-import { isNonInteractive } from '../utils/env';
+import { directoryExistsAsync } from '../utils/dir';
+import { CI } from '../utils/env';
 import { logNewSection } from '../utils/ora';
 import { confirmAsync } from '../utils/prompts';
-
-export async function directoryExistsAsync(file: string): Promise<boolean> {
-  return (await fs.stat(file).catch(() => null))?.isDirectory() ?? false;
-}
 
 export async function clearNativeFolder(projectRoot: string, folders: string[]) {
   const step = logNewSection(`Clearing ${folders.join(', ')}`);
   try {
     await Promise.all(folders.map((folderName) => fs.remove(path.join(projectRoot, folderName))));
     step.succeed(`Cleared ${folders.join(', ')} code`);
-  } catch (error) {
+  } catch (error: any) {
     step.fail(`Failed to delete ${folders.join(', ')} code: ${error.message}`);
     throw error;
   }
@@ -97,7 +94,7 @@ export async function promptToClearMalformedNativeProjectsAsync(
   if (
     // If the process is non-interactive, default to clearing the malformed native project.
     // This would only happen on re-running eject.
-    isNonInteractive() ||
+    CI ||
     // Prompt to clear the native folders.
     (await confirmAsync({
       message: `${message}, would you like to clear the project files and reinitialize them?`,

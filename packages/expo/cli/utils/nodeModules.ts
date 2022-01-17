@@ -7,8 +7,8 @@ import semver from 'semver';
 
 import * as Log from '../log';
 import { EXPO_DEBUG } from './env';
+import { SilentError } from './errors';
 import { logNewSection } from './ora';
-import { hasPackageJsonDependencyListChangedAsync } from './Podfile';
 
 export type PackageManagerName = 'npm' | 'yarn';
 
@@ -37,10 +37,44 @@ export function resolvePackageManager(options: {
 export async function installNodeDependenciesAsync(
   projectRoot: string,
   packageManager: PackageManagerName,
-  flags: { silent: boolean } = {
-    // default to silent
-    silent: !EXPO_DEBUG,
+  flags: { silent?: boolean; clean?: boolean } = {}
+) {
+  // Default to silent unless debugging.
+  const isSilent = flags.silent ?? !EXPO_DEBUG;
+  if (flags.clean && packageManager !== 'yarn') {
+    // This step can take a couple seconds, if the installation logs are enabled (with EXPO_DEBUG) then it
+    // ends up looking odd to see "Installing JavaScript dependencies" for ~5 seconds before the logs start showing up.
+    const cleanJsDepsStep = logNewSection('Cleaning JavaScript dependencies');
+    const time = Date.now();
+    // nuke the node modules
+    // TODO: this is substantially slower, we should find a better alternative to ensuring the modules are installed.
+    await fs.remove('node_modules');
+    cleanJsDepsStep.succeed(
+      `Cleaned JavaScript dependencies ${chalk.gray(Date.now() - time + 'ms')}`
+    );
   }
+
+  const installJsDepsStep = logNewSection('Installing JavaScript dependencies');
+  try {
+    const time = Date.now();
+    await installNodeDependenciesInternalAsync(projectRoot, packageManager, { silent: isSilent });
+    installJsDepsStep.succeed(
+      `Installed JavaScript dependencies ${chalk.gray(Date.now() - time + 'ms')}`
+    );
+  } catch {
+    const message = `Something went wrong installing JavaScript dependencies, check your ${packageManager} logfile or run ${chalk.bold(
+      `${packageManager} install`
+    )} again manually.`;
+    installJsDepsStep.fail(chalk.red(message));
+    // TODO: actually show the error message from the package manager! :O
+    throw new SilentError(message);
+  }
+}
+
+async function installNodeDependenciesInternalAsync(
+  projectRoot: string,
+  packageManager: PackageManagerName,
+  flags: { silent: boolean }
 ) {
   const options = { cwd: projectRoot, silent: flags.silent };
   if (packageManager === 'yarn') {
@@ -69,66 +103,5 @@ export async function installNodeDependenciesAsync(
     await yarn.installAsync();
   } else {
     await new PackageManager.NpmPackageManager(options).installAsync();
-  }
-}
-
-export async function installCocoaPodsAsync(projectRoot: string) {
-  let step = logNewSection('Installing CocoaPods...');
-  if (process.platform !== 'darwin') {
-    step.succeed('Skipped installing CocoaPods because operating system is not on macOS.');
-    return false;
-  }
-
-  const packageManager = new PackageManager.CocoaPodsPackageManager({
-    cwd: path.join(projectRoot, 'ios'),
-    silent: !EXPO_DEBUG,
-  });
-
-  if (!(await packageManager.isCLIInstalledAsync())) {
-    try {
-      // prompt user -- do you want to install cocoapods right now?
-      step.text = 'CocoaPods CLI not found in your PATH, installing it now.';
-      step.stopAndPersist();
-      await PackageManager.CocoaPodsPackageManager.installCLIAsync({
-        nonInteractive: true,
-        spawnOptions: {
-          ...packageManager.options,
-          // Don't silence this part
-          stdio: ['inherit', 'inherit', 'pipe'],
-        },
-      });
-      step.succeed('Installed CocoaPods CLI.');
-      step = logNewSection('Running `pod install` in the `ios` directory.');
-    } catch (e) {
-      step.stopAndPersist({
-        symbol: '⚠️ ',
-        text: chalk.red('Unable to install the CocoaPods CLI.'),
-      });
-      if (e instanceof PackageManager.CocoaPodsError) {
-        Log.log(e.message);
-      } else {
-        Log.log(`Unknown error: ${e.message}`);
-      }
-      return false;
-    }
-  }
-
-  try {
-    await packageManager.installAsync({ spinner: step });
-    // Create cached list for later
-    await hasPackageJsonDependencyListChangedAsync(projectRoot).catch(() => null);
-    step.succeed('Installed pods and initialized Xcode workspace.');
-    return true;
-  } catch (e) {
-    step.stopAndPersist({
-      symbol: '⚠️ ',
-      text: chalk.red('Something went wrong running `pod install` in the `ios` directory.'),
-    });
-    if (e instanceof PackageManager.CocoaPodsError) {
-      Log.log(e.message);
-    } else {
-      Log.log(`Unknown error: ${e.message}`);
-    }
-    return false;
   }
 }

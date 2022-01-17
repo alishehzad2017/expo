@@ -1,0 +1,67 @@
+#!/usr/bin/env node
+import chalk from 'chalk';
+
+import { Command } from '../../bin/cli';
+import * as Log from '../log';
+import { assertArgs, getProjectRoot } from '../utils/args';
+import { platformsFromPlatform } from './platformOptions';
+import { actionAsync } from './prebuildAsync';
+
+export const expoPrebuild: Command = (argv) => {
+  const args = assertArgs(
+    {
+      // Types
+      '--help': Boolean,
+      '--clean': Boolean,
+      '--npm': Boolean,
+      '--no-install': Boolean,
+      '--template': String,
+      '--platform': String,
+      '--skip-dependency-update': String,
+      // Aliases
+      '-h': '--help',
+      '-p': '--platform',
+      '-t': '--type',
+    },
+    argv
+  );
+
+  if (args['--help']) {
+    Log.exit(
+      chalk`
+      {bold Description}
+        Create native iOS and Android project files before building natively.
+
+      {bold Usage}
+        $ npx expo prebuild <dir>
+
+      <dir> is the directory of the Expo project.
+      Defaults to the current working directory.
+
+      Options
+      --no-install                             Skip installing npm packages and CocoaPods.
+      --clean                                  Delete the native folders and regenerate them before applying changes
+      --npm                                    Use npm to install dependencies. (default when Yarn is not installed)
+      --template <template>                    Project template to clone from. File path pointing to a local tar file or a github repo
+      -p, --platform <all|android|ios>         Platforms to sync: ios, android, all. Default: all
+      --skip-dependency-update <dependencies>  Preserves versions of listed packages in package.json (comma separated list)
+      -h, --help                               Output usage information
+
+    `,
+      0
+    );
+  }
+
+  return actionAsync(getProjectRoot(args), {
+    // Parsed options
+    clean: args['--clean'],
+    npm: args['--npm'],
+    install: !args['--no-install'],
+    platforms: platformsFromPlatform(args['--platform']),
+    // TODO: Parse
+    skipDependencyUpdate: args['--skip-dependency-update'],
+    template: args['--template'],
+  }).catch((err) => {
+    Log.exit(err);
+  });
+};

@@ -1,7 +1,7 @@
 import { getPackageJson, PackageJSONConfig } from '@expo/config';
 import chalk from 'chalk';
 import crypto from 'crypto';
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 
 import * as Log from '../log';
@@ -42,7 +42,7 @@ export async function updatePackageJSONAsync({
   });
 
   const removedPkgMain = updatePackageJSONEntryPoint({ pkg });
-  await fs.writeFile(
+  await fs.promises.writeFile(
     path.resolve(projectRoot, 'package.json'),
     // Add new line to match the format of running yarn.
     // This prevents the `package.json` from changing when running `prebuild --no-install` multiple times.
@@ -56,9 +56,8 @@ export async function updatePackageJSONAsync({
     Log.log(
       `\u203A Removed ${chalk.bold(
         `"main": "${removedPkgMain}"`
-      )} from package.json because we recommend using index.js as main instead`
+      )} from package.json because we recommend using index.js as main instead\n`
     );
-    Log.newLine();
   }
 
   return results;

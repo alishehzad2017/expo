@@ -1,8 +1,8 @@
 import { ModPlatform } from '@expo/config-plugins';
 import chalk from 'chalk';
 
-import { CommandError } from '../utils/errors';
 import * as Log from '../log';
+import { CommandError } from '../utils/errors';
 
 export function platformsFromPlatform(
   platform: string = 'all',
