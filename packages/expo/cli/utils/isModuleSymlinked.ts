@@ -49,20 +49,20 @@ function isModuleRootPathInNodeModulesFolder(moduleRootPath: string): boolean {
  * @param moduleId
  *
  * @example
- * isModuleSymlinked({
- *   projectRoot: './expo/apps/native-component-list',
+ * isModuleSymlinked('./expo/apps/native-component-list', {
  *   moduleId: 'react-native'
  * })
  */
-export function isModuleSymlinked({
-  projectRoot,
-  moduleId,
-  isSilent,
-}: {
-  projectRoot: string;
-  moduleId: string;
-  isSilent?: boolean;
-}): boolean {
+export function isModuleSymlinked(
+  projectRoot: string,
+  {
+    moduleId,
+    isSilent,
+  }: {
+    moduleId: string;
+    isSilent?: boolean;
+  }
+): boolean {
   try {
     const modulePath = resolveFrom(projectRoot, moduleId);
     if (!modulePath) {

@@ -159,7 +159,7 @@ export function updatePkgDependencies(
     ) {
       if (
         // Then ensure it isn't symlinked (i.e. the user has a custom version in their yarn workspace).
-        isModuleSymlinked({ projectRoot, moduleId: dependenciesKey, isSilent: true })
+        isModuleSymlinked(projectRoot, { moduleId: dependenciesKey, isSilent: true })
       ) {
         // If the package is in the project's package.json and it's symlinked, then skip overwriting it.
         symlinkedPackages.push(dependenciesKey);

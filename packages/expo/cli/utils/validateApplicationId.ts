@@ -4,10 +4,12 @@ import fetch from 'node-fetch';
 import { learnMore } from './link';
 import { isUrlAvailableAsync } from './url';
 
+/** Validate an iOS bundle identifier. */
 export function validateBundleId(value: string): boolean {
   return /^[a-zA-Z0-9-.]+$/.test(value);
 }
 
+/** Validate an Android package name. */
 export function validatePackage(value: string): boolean {
   return /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/.test(value);
 }
@@ -15,11 +17,7 @@ export function validatePackage(value: string): boolean {
 const cachedBundleIdResults: Record<string, string> = {};
 const cachedPackageNameResults: Record<string, string> = {};
 
-/**
- * A quality of life method that provides a warning when the bundle ID is already in use.
- *
- * @param bundleId
- */
+/** Returns a warning message if an iOS bundle identifier is potentially already in use. */
 export async function getBundleIdWarningAsync(bundleId: string): Promise<string | null> {
   // Prevent fetching for the same ID multiple times.
   if (cachedBundleIdResults[bundleId]) {
@@ -47,6 +45,7 @@ export async function getBundleIdWarningAsync(bundleId: string): Promise<string 
   return null;
 }
 
+/** Returns a warning message if an Android package name is potentially already in use. */
 export async function getPackageNameWarningAsync(packageName: string): Promise<string | null> {
   // Prevent fetching for the same ID multiple times.
   if (cachedPackageNameResults[packageName]) {
