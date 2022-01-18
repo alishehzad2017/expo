@@ -1,6 +1,6 @@
 import { IOSConfig } from '@expo/config-plugins';
 import Minipass from 'minipass';
-import * as path from 'path';
+import path from 'path';
 import { ReadEntry } from 'tar';
 
 function escapeXMLCharacters(original: string): string {

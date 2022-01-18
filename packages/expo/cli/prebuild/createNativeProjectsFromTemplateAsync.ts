@@ -2,13 +2,12 @@ import { ExpoConfig, PackageJSONConfig } from '@expo/config';
 import { ModPlatform } from '@expo/config-plugins';
 import { getBareExtensions, getFileWithExtensions } from '@expo/config/paths';
 import chalk from 'chalk';
-import fs from 'fs-extra';
 import path from 'path';
 import semver from 'semver';
 import temporary from 'tempy';
 
 import * as Log from '../log';
-import { directoryExistsAsync } from '../utils/dir';
+import { copySync, directoryExistsAsync } from '../utils/dir';
 import { AbortCommandError, SilentError } from '../utils/errors';
 import { mergeGitIgnorePaths } from '../utils/mergeGitIgnorePaths';
 import { downloadAndExtractNpmModuleAsync, getNpmUrlAsync } from '../utils/npm';
@@ -186,7 +185,7 @@ async function copyPathsFromTemplateAsync(
     const projectPath = path.join(projectRoot, targetPath);
     if (!(await directoryExistsAsync(projectPath))) {
       copiedPaths.push(targetPath);
-      fs.copySync(path.join(templatePath, targetPath), projectPath);
+      copySync(path.join(templatePath, targetPath), projectPath);
     } else {
       skippedPaths.push(targetPath);
     }

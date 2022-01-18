@@ -1,30 +1,5 @@
-import assert from 'assert';
-import findUp from 'find-up';
 import path from 'path';
 import resolveFrom from 'resolve-from';
-
-/**
- * Find the closest `package.json`.
- *
- * @example findUpPackageJson('./foo/expo/build/index.js') -> './foo/expo/package.json'
- */
-function findUpPackageJson(root: string): string {
-  const packageJson = findUp.sync('package.json', { cwd: root });
-  assert(packageJson, `No package.json found for module "${root}"`);
-  return packageJson;
-}
-
-/**
- * Return the root folder for a node module file.
- *
- * @example getModuleRootPathForFile('./foo/expo/build/index.js') -> './foo/expo'
- */
-function getModuleRootPathForFile(moduleFile: string): string {
-  // Get the closest package.json to the node module
-  const packageJson = findUpPackageJson(moduleFile);
-  const moduleRoot = path.dirname(packageJson);
-  return moduleRoot;
-}
 
 /**
  * Return true if the parent folder for a given file path is named "node_modules".
@@ -64,13 +39,7 @@ export function isModuleSymlinked(
   }
 ): boolean {
   try {
-    const modulePath = resolveFrom(projectRoot, moduleId);
-    if (!modulePath) {
-      // module cannot be resolved (probably not installed), cannot be symlinked.
-      return false;
-    }
-    // resolve the root folder for the node module
-    const moduleRootPath = getModuleRootPathForFile(modulePath);
+    const moduleRootPath = path.dirname(resolveFrom(projectRoot, `${moduleId}/package.json`));
     return !isModuleRootPathInNodeModulesFolder(moduleRootPath);
   } catch (error) {
     if (!isSilent) {

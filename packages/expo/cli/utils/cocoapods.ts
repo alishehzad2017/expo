@@ -2,17 +2,20 @@ import { getPackageJson, PackageJSONConfig } from '@expo/config';
 import JsonFile from '@expo/json-file';
 import * as PackageManager from '@expo/package-manager';
 import chalk from 'chalk';
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 
 import * as Log from '../log';
 import { hashForDependencyMap } from '../prebuild/updatePackageJson';
+import { ensureDirectoryAsync } from './dir';
 import { EXPO_DEBUG } from './env';
-import { AbortCommandError } from './errors';
 import { logNewSection } from './ora';
 
+const PROJECT_PREBUILD_SETTINGS = '.expo/prebuild';
+const CACHED_PACKAGE_JSON = 'cached-packages.json';
+
 function getTempPrebuildFolder(projectRoot: string) {
-  return path.join(projectRoot, '.expo', 'prebuild');
+  return path.join(projectRoot, PROJECT_PREBUILD_SETTINGS);
 }
 
 type PackageChecksums = {
@@ -23,8 +26,8 @@ type PackageChecksums = {
 function hasNewDependenciesSinceLastBuild(projectRoot: string, packageChecksums: PackageChecksums) {
   // TODO: Maybe comparing lock files would be better...
   const tempDir = getTempPrebuildFolder(projectRoot);
-  const tempPkgJsonPath = path.join(tempDir, 'cached-packages.json');
-  if (!fs.pathExistsSync(tempPkgJsonPath)) {
+  const tempPkgJsonPath = path.join(tempDir, CACHED_PACKAGE_JSON);
+  if (!fs.existsSync(tempPkgJsonPath)) {
     return true;
   }
   const { dependencies, devDependencies } = JsonFile.read(tempPkgJsonPath);
@@ -49,66 +52,11 @@ export async function hasPackageJsonDependencyListChangedAsync(projectRoot: stri
   const hasNewDependencies = hasNewDependenciesSinceLastBuild(projectRoot, packages);
 
   // Cache package.json
-  const tempDir = path.join(getTempPrebuildFolder(projectRoot), 'cached-packages.json');
-  await fs.ensureFile(tempDir);
+  await ensureDirectoryAsync(getTempPrebuildFolder(projectRoot));
+  const tempDir = path.join(getTempPrebuildFolder(projectRoot), CACHED_PACKAGE_JSON);
   await JsonFile.writeAsync(tempDir, packages);
 
   return hasNewDependencies;
-}
-
-function doesProjectUseCocoaPods(projectRoot: string): boolean {
-  return fs.existsSync(path.join(projectRoot, 'ios', 'Podfile'));
-}
-
-function isLockfileCreated(projectRoot: string): boolean {
-  const podfileLockPath = path.join(projectRoot, 'ios', 'Podfile.lock');
-  return fs.existsSync(podfileLockPath);
-}
-
-function isPodFolderCreated(projectRoot: string): boolean {
-  const podFolderPath = path.join(projectRoot, 'ios', 'Pods');
-  return fs.existsSync(podFolderPath);
-}
-
-// TODO: Same process but with app.config changes + default plugins.
-// This will ensure the user is prompted for extra setup.
-export default async function maybePromptToSyncPodsAsync(projectRoot: string) {
-  if (!doesProjectUseCocoaPods(projectRoot)) {
-    // Project does not use CocoaPods
-    return;
-  }
-  if (!isLockfileCreated(projectRoot) || !isPodFolderCreated(projectRoot)) {
-    if (!(await installCocoaPodsAsync(projectRoot))) {
-      throw new AbortCommandError();
-    }
-    return;
-  }
-
-  // Getting autolinked packages can be heavy, optimize around checking every time.
-  if (!(await hasPackageJsonDependencyListChangedAsync(projectRoot))) {
-    return;
-  }
-
-  await promptToInstallPodsAsync(projectRoot, []);
-}
-
-async function promptToInstallPodsAsync(projectRoot: string, missingPods?: string[]) {
-  if (missingPods?.length) {
-    Log.log(
-      `Could not find the following native modules: ${missingPods
-        .map((pod) => chalk.bold(pod))
-        .join(', ')}. Did you forget to run "${chalk.bold('pod install')}" ?`
-    );
-  }
-
-  try {
-    if (!(await installCocoaPodsAsync(projectRoot))) {
-      throw new AbortCommandError();
-    }
-  } catch (error) {
-    fs.removeSync(path.join(getTempPrebuildFolder(projectRoot), 'cached-packages.json'));
-    throw error;
-  }
 }
 
 export async function installCocoaPodsAsync(projectRoot: string) {

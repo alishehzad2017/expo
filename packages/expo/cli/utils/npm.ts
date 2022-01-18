@@ -2,7 +2,7 @@ import { getExpoHomeDirectory } from '@expo/config/build/getUserState';
 import { JSONValue } from '@expo/json-file';
 import spawnAsync from '@expo/spawn-async';
 import assert from 'assert';
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 import slugify from 'slugify';
 import { Stream } from 'stream';
@@ -14,6 +14,7 @@ import { createEntryResolver, createFileTransform } from './createFileTransform'
 import { CommandError } from './errors';
 import { FileSystemCache } from './fetch-cache/FileSystemCache';
 import createFetchWithCache from './fetch-cache/fetch';
+import { ensureDirectoryAsync } from './dir';
 
 const cachedFetch = createFetchWithCache(
   new FileSystemCache({
@@ -148,7 +149,7 @@ export async function extractNpmTarballAsync(
 ): Promise<void> {
   const { cwd, strip, name, fileList = [] } = props;
 
-  await fs.ensureDir(cwd);
+  await ensureDirectoryAsync(cwd);
 
   await pipeline(
     stream,

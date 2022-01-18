@@ -1,11 +1,12 @@
 import * as PackageManager from '@expo/package-manager';
 import chalk from 'chalk';
-import fs from 'fs-extra';
+import fs from 'fs';
 import yaml from 'js-yaml';
-import * as path from 'path';
+import path from 'path';
 import semver from 'semver';
 
 import * as Log from '../log';
+import { removeAsync } from './dir';
 import { EXPO_DEBUG } from './env';
 import { SilentError } from './errors';
 import { logNewSection } from './ora';
@@ -48,7 +49,7 @@ export async function installNodeDependenciesAsync(
     const time = Date.now();
     // nuke the node modules
     // TODO: this is substantially slower, we should find a better alternative to ensuring the modules are installed.
-    await fs.remove('node_modules');
+    await removeAsync('node_modules');
     cleanJsDepsStep.succeed(
       `Cleaned JavaScript dependencies ${chalk.gray(Date.now() - time + 'ms')}`
     );
@@ -92,6 +93,7 @@ async function installNodeDependenciesInternalAsync(
         }
       }
       const config = yamlString ? yaml.safeLoad(yamlString) : {};
+      // @ts-ignore
       config.nodeLinker = 'node-modules';
       !flags.silent &&
         Log.warn(

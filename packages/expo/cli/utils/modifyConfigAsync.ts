@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import * as Log from '../log';
 import { SilentError } from './errors';
 
+/** Wraps `[@expo/config] modifyConfigAsync()` and adds additional logging. */
 export async function attemptModification(
   projectRoot: string,
   edits: Partial<ExpoConfig>,
@@ -27,31 +28,7 @@ function logNoConfig() {
   );
 }
 
-export async function attemptAddingPluginsAsync(
-  projectRoot: string,
-  exp: Pick<ExpoConfig, 'plugins'>,
-  plugins: string[]
-): Promise<void> {
-  if (!plugins.length) return;
-
-  const edits = {
-    plugins: [...new Set((exp.plugins || []).concat(plugins))],
-  };
-  const modification = await modifyConfigAsync(projectRoot, edits, {
-    skipSDKVersionRequirement: true,
-    skipPlugins: true,
-  });
-  if (modification.type === 'success') {
-    Log.log(`\u203A Added config plugin${plugins.length === 1 ? '' : 's'}: ${plugins.join(', ')}`);
-  } else {
-    const exactEdits = {
-      plugins,
-    };
-    warnAboutConfigAndThrow(modification.type, modification.message!, exactEdits);
-  }
-}
-
-export function warnAboutConfigAndThrow(type: string, message: string, edits: Partial<ExpoConfig>) {
+function warnAboutConfigAndThrow(type: string, message: string, edits: Partial<ExpoConfig>) {
   Log.log();
   if (type === 'warn') {
     // The project is using a dynamic config, give the user a helpful log and bail out.
