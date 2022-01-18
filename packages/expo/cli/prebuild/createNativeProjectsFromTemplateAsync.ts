@@ -10,7 +10,7 @@ import temporary from 'tempy';
 import * as Log from '../log';
 import { directoryExistsAsync } from '../utils/dir';
 import { AbortCommandError, SilentError } from '../utils/errors';
-import { mergeGitIgnorePaths } from '../utils/gitignore';
+import { mergeGitIgnorePaths } from '../utils/mergeGitIgnorePaths';
 import { downloadAndExtractNpmModuleAsync, getNpmUrlAsync } from '../utils/npm';
 import { logNewSection } from '../utils/ora';
 import { resolveTemplateArgAsync } from './resolveTemplate';

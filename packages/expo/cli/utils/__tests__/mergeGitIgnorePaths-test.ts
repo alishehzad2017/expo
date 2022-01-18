@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import temporary from 'tempy';
 
-import * as GitIgnore from '../GitIgnore';
+import * as GitIgnore from '../mergeGitIgnorePaths';
 
 const testRoot = temporary.directory();
 beforeAll(async () => {
