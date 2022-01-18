@@ -147,11 +147,11 @@ export function updatePackageJSONDependencies({
   // Save the dependencies
   if (hasNewDependencies) {
     // Use Object.assign to preserve the original order of dependencies, this makes it easier to see what changed in the git diff.
-    pkg.dependencies = Object.assign(pkg.dependencies, combinedDependencies);
+    pkg.dependencies = Object.assign(pkg.dependencies ?? {}, combinedDependencies);
   }
   if (hasNewDevDependencies) {
     // Same as with dependencies
-    pkg.devDependencies = Object.assign(pkg.devDependencies, combinedDevDependencies);
+    pkg.devDependencies = Object.assign(pkg.devDependencies ?? {}, combinedDevDependencies);
   }
 
   return {
