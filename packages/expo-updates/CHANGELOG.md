@@ -12,6 +12,7 @@
 
 - Fix `IllegalThreadStateException` that occurred when creating an event to send to React Native early in the app lifecycle. ([#15880](https://github.com/expo/expo/pull/15880) by [@esamelson](https://github.com/esamelson))
 - Ensure we return early when updates are disabled on Android. ([#15882](https://github.com/expo/expo/pull/15882) by [@esamelson](https://github.com/esamelson))
+- Fix compatibility with react-native 0.66. ([#15914](https://github.com/expo/expo/pull/15914) by [@kudo](https://github.com/kudo))
 
 ### 💡 Others
 
