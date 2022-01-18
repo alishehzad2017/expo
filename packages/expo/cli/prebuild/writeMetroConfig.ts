@@ -26,30 +26,13 @@ export function writeMetroConfig({
   const updatingMetroConfigStep = logNewSection('Adding Metro bundler config');
 
   try {
-    const sourceConfigPath = path.join(tempDir, 'metro.config.js');
-    const targetConfigPath = path.join(projectRoot, 'metro.config.js');
-    const targetConfigPathExists = fs.existsSync(targetConfigPath);
-    if (targetConfigPathExists) {
-      // Prevent re-runs from throwing an error if the metro config hasn't been modified.
-      const contents = createFileHash(fs.readFileSync(targetConfigPath, 'utf8'));
-      const targetContents = createFileHash(fs.readFileSync(sourceConfigPath, 'utf8'));
-      if (contents !== targetContents) {
-        throw new CommandError('Existing Metro config found; not overwriting.');
-      } else {
-        // Nothing to change, hide the step and exit.
-        updatingMetroConfigStep.stop();
-        updatingMetroConfigStep.clear();
-        return;
-      }
-    } else if (
-      fs.existsSync(path.join(projectRoot, 'metro.config.json')) ||
-      pkg.metro ||
-      fs.existsSync(path.join(projectRoot, 'rn-cli.config.js'))
-    ) {
-      throw new CommandError('Existing Metro config found; not overwriting.');
+    const didChange = copyTemplateMetroConfig(projectRoot, { pkg, tempDir });
+    if (!didChange) {
+      // Nothing to change, hide the step and exit.
+      updatingMetroConfigStep.stop();
+      updatingMetroConfigStep.clear();
+      return;
     }
-
-    fs.copyFileSync(sourceConfigPath, targetConfigPath);
     updatingMetroConfigStep.succeed('Added Metro config');
   } catch (e) {
     updatingMetroConfigStep.stopAndPersist({
@@ -66,4 +49,50 @@ export function writeMetroConfig({
     );
     Log.log();
   }
+}
+
+/**
+ * Detects if the project's existing `metro.config.js` matches the template, and if not,
+ * throws errors indicating what the user should do.
+ *
+ * > Exposed for testing.
+ *
+ * @returns Boolean indicating the `metro.config.js` changed.
+ */
+export function copyTemplateMetroConfig(
+  projectRoot: string,
+  {
+    pkg,
+    tempDir,
+  }: {
+    pkg: PackageJSONConfig;
+    tempDir: string;
+  }
+): boolean {
+  const sourceConfigPath = path.join(tempDir, 'metro.config.js');
+  const targetConfigPath = path.join(projectRoot, 'metro.config.js');
+  const targetConfigPathExists = fs.existsSync(targetConfigPath);
+  if (targetConfigPathExists) {
+    // Prevent re-runs from throwing an error if the metro config hasn't been modified.
+    const contents = createFileHash(fs.readFileSync(targetConfigPath, 'utf8'));
+    const targetContents = createFileHash(fs.readFileSync(sourceConfigPath, 'utf8'));
+    if (contents !== targetContents) {
+      throw new CommandError('Existing Metro config found; not overwriting.');
+    }
+    return false;
+  }
+
+  // We don't support legacy file names so just throw.
+  if (
+    fs.existsSync(path.join(projectRoot, 'metro.config.json')) ||
+    pkg.metro ||
+    fs.existsSync(path.join(projectRoot, 'rn-cli.config.js'))
+  ) {
+    throw new CommandError('Existing Metro config found; not overwriting.');
+  }
+
+  // Finally, copy if nothing goes wrong.
+  fs.copyFileSync(sourceConfigPath, targetConfigPath);
+
+  return true;
 }

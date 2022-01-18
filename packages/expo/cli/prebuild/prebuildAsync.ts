@@ -10,8 +10,7 @@ import { clearNativeFolder, promptToClearMalformedNativeProjectsAsync } from './
 import { configureProjectAsync } from './configureProjectAsync';
 import { createNativeProjectsFromTemplateAsync } from './createNativeProjectsFromTemplateAsync';
 import { ensureConfigAsync } from './ensureConfigAsync';
-import { assertPlatforms, ensureValidPlatforms } from './platformOptions';
-import { resolveTemplateOption } from './resolveOptions';
+import { assertPlatforms, ensureValidPlatforms, resolveTemplateOption } from './resolveOptions';
 
 export type PrebuildResults = {
   /** Expo config. */
@@ -56,7 +55,9 @@ export async function prebuildAsync(
 ): Promise<PrebuildResults> {
   if (options.clean) {
     // Clean the project folders...
-    if (await maybeBailOnGitStatusAsync()) return;
+    if (await maybeBailOnGitStatusAsync()) {
+      return;
+    }
     // Clear the native folders before syncing
     await clearNativeFolder(projectRoot, options.platforms);
   } else {
@@ -74,8 +75,7 @@ export async function prebuildAsync(
 
   // Create native projects from template.
   const { hasNewProjectFiles, needsPodInstall, hasNewDependencies } =
-    await createNativeProjectsFromTemplateAsync({
-      projectRoot,
+    await createNativeProjectsFromTemplateAsync(projectRoot, {
       exp,
       pkg,
       template: options.template != null ? resolveTemplateOption(options.template) : undefined,

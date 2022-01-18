@@ -28,24 +28,36 @@ import { writeMetroConfig } from './writeMetroConfig';
  *
  * @return `true` if the project is ejecting, and `false` if it's syncing.
  */
-export async function createNativeProjectsFromTemplateAsync({
-  projectRoot,
-  exp,
-  pkg,
-  template,
-  tempDir = temporary.directory(),
-  platforms,
-  skipDependencyUpdate,
-}: {
-  projectRoot: string;
-  exp: ExpoConfig;
-  pkg: PackageJSONConfig;
-  template?: string;
-  tempDir?: string;
-  platforms: ModPlatform[];
-  skipDependencyUpdate?: string[];
-}): Promise<
-  { hasNewProjectFiles: boolean; needsPodInstall: boolean } & DependenciesModificationResults
+export async function createNativeProjectsFromTemplateAsync(
+  projectRoot: string,
+  {
+    exp,
+    pkg,
+    template,
+    tempDir = temporary.directory(),
+    platforms,
+    skipDependencyUpdate,
+  }: {
+    /** Expo Config */
+    exp: ExpoConfig;
+    /** package.json as JSON */
+    pkg: PackageJSONConfig;
+    /** Template reference ID. */
+    template?: string;
+    /** Directory to write the template to before copying into the project. */
+    tempDir?: string;
+    /** List of platforms to clone. */
+    platforms: ModPlatform[];
+    /** List of dependencies to skip updating. */
+    skipDependencyUpdate?: string[];
+  }
+): Promise<
+  {
+    /** Indicates if new files were created in the project. */
+    hasNewProjectFiles: boolean;
+    /** Indicates that the project needs to run `pod install` */
+    needsPodInstall: boolean;
+  } & DependenciesModificationResults
 > {
   const copiedPaths = await cloneNativeDirectoriesAsync({
     projectRoot,
@@ -58,8 +70,7 @@ export async function createNativeProjectsFromTemplateAsync({
 
   writeMetroConfig({ projectRoot, pkg, tempDir });
 
-  const depsResults = await updatePackageJSONAsync({
-    projectRoot,
+  const depsResults = await updatePackageJSONAsync(projectRoot, {
     tempDir,
     pkg,
     skipDependencyUpdate,
@@ -117,11 +128,9 @@ async function cloneNativeDirectoriesAsync({
         name: exp.name,
       });
     }
-    [copiedPaths, skippedPaths] = await copyPathsFromTemplateAsync(
-      projectRoot,
-      tempDir,
-      targetPaths
-    );
+    const copyResults = await copyPathsFromTemplateAsync(projectRoot, tempDir, targetPaths);
+    copiedPaths = copyResults.copiedPaths;
+    skippedPaths = copyResults.skippedPaths;
     const results = mergeGitIgnorePaths(
       path.join(projectRoot, '.gitignore'),
       path.join(tempDir, '.gitignore')
@@ -170,7 +179,7 @@ async function copyPathsFromTemplateAsync(
   projectRoot: string,
   templatePath: string,
   paths: string[]
-): Promise<[string[], string[]]> {
+): Promise<{ copiedPaths: string[]; skippedPaths: string[] }> {
   const copiedPaths = [];
   const skippedPaths = [];
   for (const targetPath of paths) {
@@ -182,7 +191,7 @@ async function copyPathsFromTemplateAsync(
       skippedPaths.push(targetPath);
     }
   }
-  return [copiedPaths, skippedPaths];
+  return { copiedPaths, skippedPaths };
 }
 
 function getTargetPaths(projectRoot: string, pkg: PackageJSONConfig, platforms: ModPlatform[]) {

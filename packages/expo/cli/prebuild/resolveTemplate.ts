@@ -49,6 +49,24 @@ function hasRepo({ username, name, branch, filePath }: RepoInfo) {
   return isUrlOk(contentsUrl + packagePath + `?ref=${branch}`);
 }
 
+async function downloadAndExtractRepoAsync(
+  root: string,
+  { username, name, branch, filePath }: RepoInfo
+): Promise<void> {
+  const projectName = path.basename(root);
+
+  const strip = filePath ? filePath.split('/').length + 1 : 1;
+
+  const url = `https://codeload.github.com/${username}/${name}/tar.gz/${branch}`;
+  Log.debug('Downloading tarball from:', url);
+  await extractNpmTarballFromUrlAsync(url, {
+    cwd: root,
+    name: projectName,
+    strip,
+    fileList: [`${name}-${branch}${filePath ? `/${filePath}` : ''}`],
+  });
+}
+
 export async function resolveTemplateArgAsync(
   tempDir: string,
   oraInstance: Ora,
@@ -121,22 +139,4 @@ export async function resolveTemplateArgAsync(
   }
 
   return true;
-}
-
-function downloadAndExtractRepoAsync(
-  root: string,
-  { username, name, branch, filePath }: RepoInfo
-): Promise<void> {
-  const projectName = path.basename(root);
-
-  const strip = filePath ? filePath.split('/').length + 1 : 1;
-
-  const url = `https://codeload.github.com/${username}/${name}/tar.gz/${branch}`;
-  Log.debug('Downloading tarball from:', url);
-  return extractNpmTarballFromUrlAsync(url, {
-    cwd: root,
-    name: projectName,
-    strip,
-    fileList: [`${name}-${branch}${filePath ? `/${filePath}` : ''}`],
-  });
 }
