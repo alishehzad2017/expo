@@ -76,7 +76,14 @@ describe(resolveTemplateOption, () => {
 
 describe(ensureValidPlatforms, () => {
   const platform = process.platform;
+  const warning = console.warn;
 
+  beforeAll(() => {
+    console.warn = jest.fn();
+  });
+  afterAll(() => {
+    console.warn = warning;
+  });
   afterEach(() => {
     Object.defineProperty(process, 'platform', {
       value: platform,

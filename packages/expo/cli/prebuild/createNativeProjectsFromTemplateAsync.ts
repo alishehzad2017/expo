@@ -4,7 +4,6 @@ import { getBareExtensions, getFileWithExtensions } from '@expo/config/paths';
 import chalk from 'chalk';
 import path from 'path';
 import semver from 'semver';
-import temporary from 'tempy';
 
 import * as Log from '../log';
 import { copySync, directoryExistsAsync } from '../utils/dir';
@@ -33,7 +32,7 @@ export async function createNativeProjectsFromTemplateAsync(
     exp,
     pkg,
     template,
-    tempDir = temporary.directory(),
+    tempDir,
     platforms,
     skipDependencyUpdate,
   }: {
@@ -58,6 +57,12 @@ export async function createNativeProjectsFromTemplateAsync(
     needsPodInstall: boolean;
   } & DependenciesModificationResults
 > {
+  if (!tempDir) {
+    const temporary = await import('tempy');
+
+    tempDir = temporary.directory();
+  }
+
   const copiedPaths = await cloneNativeDirectoriesAsync({
     projectRoot,
     template,
